@@ -1,6 +1,6 @@
 import express from 'express';
-import Meme from '../models/Meme.js';
 import { localUpload } from '../utils/localUpload.js';
+import { db } from '../config/firebase.js';
 
 const router = express.Router();
 
@@ -10,26 +10,29 @@ router.post('/upload', localUpload.single('image'), async (req, res) => {
     const { title, userId, uploaderName } = req.body;
     const file = req.file;
     if (!file) {
-      console.error('Upload failed: No image processed by multer');
       return res.status(400).send('No image uploaded.');
     }
     if (!userId) {
       return res.status(400).json({ message: 'User not authenticated.' });
     }
 
-    const newMeme = new Meme({
+    const memeData = {
       title,
       imageUrl: `/${file.path.replace(/\\/g, '/')}`,
       uploader: userId,
       uploaderName: uploaderName || 'Anonymous',
-    });
+      postType: 'image',
+      createdAt: Date.now(),
+      likes: []
+    };
 
-    await newMeme.save();
-    res.status(201).json(newMeme);
+    const newMemeRef = db.ref('memes').push();
+    await newMemeRef.set({ ...memeData, _id: newMemeRef.key });
+
+    res.status(201).json({ ...memeData, _id: newMemeRef.key });
   } catch (error) {
     console.error('--- UPLOAD ERROR (MEMES) ---');
     console.error('Error:', error);
-    console.error('-----------------------------');
     res.status(500).json({ message: 'Error uploading meme', details: error.message });
   }
 });
@@ -41,16 +44,20 @@ router.post('/text-post', async (req, res) => {
     if (!textContent?.trim()) return res.status(400).json({ message: 'Text content is required.' });
     if (!userId) return res.status(400).json({ message: 'User not authenticated.' });
 
-    const newPost = new Meme({
+    const postData = {
       title: title || '',
       textContent,
       postType: 'text',
       uploader: userId,
       uploaderName: uploaderName || 'Anonymous',
-    });
+      createdAt: Date.now(),
+      likes: []
+    };
 
-    await newPost.save();
-    res.status(201).json(newPost);
+    const newMemeRef = db.ref('memes').push();
+    await newMemeRef.set({ ...postData, _id: newMemeRef.key });
+
+    res.status(201).json({ ...postData, _id: newMemeRef.key });
   } catch (error) {
     res.status(500).json({ message: 'Error posting text', details: error.message });
   }
@@ -59,7 +66,9 @@ router.post('/text-post', async (req, res) => {
 // Get Memes
 router.get('/', async (req, res) => {
   try {
-    const memes = await Meme.find().sort({ createdAt: -1 });
+    const snapshot = await db.ref('memes').once('value');
+    const memesObj = snapshot.val() || {};
+    const memes = Object.values(memesObj).sort((a, b) => b.createdAt - a.createdAt);
     res.json(memes);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching memes' });
@@ -74,19 +83,23 @@ router.put('/like/:id', async (req, res) => {
   try {
     if (!userId) return res.status(400).json({ message: 'Unauthenticated' });
 
-    const meme = await Meme.findById(id);
+    const memeRef = db.ref(`memes/${id}`);
+    const snapshot = await memeRef.once('value');
+    const meme = snapshot.val();
+
     if (!meme) return res.status(404).send('No meme with that id');
 
-    const index = meme.likes.findIndex((id) => id === String(userId));
+    let likes = meme.likes || [];
+    const index = likes.indexOf(String(userId));
 
     if (index === -1) {
-      meme.likes.push(userId);
+      likes.push(userId);
     } else {
-      meme.likes = meme.likes.filter((id) => id !== String(userId));
+      likes = likes.filter((l) => l !== String(userId));
     }
 
-    const updatedMeme = await Meme.findByIdAndUpdate(id, meme, { new: true });
-    res.json(updatedMeme);
+    await memeRef.update({ likes });
+    res.json({ ...meme, likes });
   } catch (error) {
     res.status(500).json({ message: 'Error liking meme' });
   }
@@ -95,22 +108,20 @@ router.put('/like/:id', async (req, res) => {
 // Delete Meme
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const { userId } = req.query; // Usually delete might use query or we can keep body if needed, but fetch DELETE often uses query. Let's use body for consistency if req.body is available in DELETE (Express supports it)
-    
-    // Actually, let's use query for userId to be safe with all clients, or better, headers. 
-    // But since the project seems to use req.body for userId in PUT, I'll try to stick to that if possible, 
-    // though DELETE with body is sometimes problematic for some clients. 
-    // Let's check how they do it. The user didn't specify. I'll use query for DELETE.
+    const { userId } = req.query; 
     
     try {
-        const meme = await Meme.findById(id);
+        const memeRef = db.ref(`memes/${id}`);
+        const snapshot = await memeRef.once('value');
+        const meme = snapshot.val();
+
         if (!meme) return res.status(404).json({ message: 'Meme not found' });
 
-        if (meme.uploader.toString() !== userId) {
+        if (meme.uploader !== userId) {
             return res.status(403).json({ message: 'Unauthorized to delete' });
         }
 
-        await Meme.findByIdAndDelete(id);
+        await memeRef.remove();
         res.json({ message: 'Meme deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting meme' });
@@ -123,17 +134,21 @@ router.post('/reply/:id', async (req, res) => {
     const { userId, userName, text } = req.body;
 
     try {
-        const meme = await Meme.findById(id);
+        const memeRef = db.ref(`memes/${id}`);
+        const snapshot = await memeRef.once('value');
+        const meme = snapshot.val();
+
         if (!meme) return res.status(404).json({ message: 'Meme not found' });
 
-        meme.replies.push({ user: userId, userName: userName || 'Anonymous', text });
-        await meme.save();
-
-        const updatedMeme = await Meme.findById(id);
-        res.status(201).json(updatedMeme);
+        const replies = meme.replies || [];
+        replies.push({ user: userId, userName: userName || 'Anonymous', text, createdAt: Date.now() });
+        
+        await memeRef.update({ replies });
+        res.status(201).json({ ...meme, replies });
     } catch (error) {
         res.status(500).json({ message: 'Error replying to meme' });
     }
 });
 
 export default router;
+

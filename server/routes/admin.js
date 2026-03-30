@@ -1,7 +1,5 @@
 import express from 'express';
-import User from '../models/User.js';
-import Meme from '../models/Meme.js';
-import Note from '../models/Note.js';
+import { db } from '../config/firebase.js';
 
 const router = express.Router();
 
@@ -20,7 +18,9 @@ router.post('/login', (req, res) => {
 // Get all users
 router.get('/users', async (req, res) => {
     try {
-        const users = await User.find().select('-password');
+        const snapshot = await db.ref('users').once('value');
+        const usersObj = snapshot.val() || {};
+        const users = Object.entries(usersObj).map(([id, data]) => ({ id, ...data }));
         res.json(users);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching users' });
@@ -30,7 +30,9 @@ router.get('/users', async (req, res) => {
 // Get all memes
 router.get('/memes', async (req, res) => {
     try {
-        const memes = await Meme.find().populate('uploader', 'firstName lastName');
+        const snapshot = await db.ref('memes').once('value');
+        const memesObj = snapshot.val() || {};
+        const memes = Object.values(memesObj);
         res.json(memes);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching memes' });
@@ -40,7 +42,9 @@ router.get('/memes', async (req, res) => {
 // Get all notes
 router.get('/notes', async (req, res) => {
     try {
-        const notes = await Note.find().populate('uploader', 'firstName lastName');
+        const snapshot = await db.ref('notes').once('value');
+        const notesObj = snapshot.val() || {};
+        const notes = Object.values(notesObj);
         res.json(notes);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching notes' });
@@ -50,7 +54,7 @@ router.get('/notes', async (req, res) => {
 // Delete user
 router.delete('/users/:id', async (req, res) => {
     try {
-        await User.findByIdAndDelete(req.params.id);
+        await db.ref(`users/${req.params.id}`).remove();
         res.json({ message: 'User deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting user' });
@@ -60,7 +64,7 @@ router.delete('/users/:id', async (req, res) => {
 // Delete meme
 router.delete('/memes/:id', async (req, res) => {
     try {
-        await Meme.findByIdAndDelete(req.params.id);
+        await db.ref(`memes/${req.params.id}`).remove();
         res.json({ message: 'Meme deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting meme' });
@@ -70,7 +74,7 @@ router.delete('/memes/:id', async (req, res) => {
 // Delete note
 router.delete('/notes/:id', async (req, res) => {
     try {
-        await Note.findByIdAndDelete(req.params.id);
+        await db.ref(`notes/${req.params.id}`).remove();
         res.json({ message: 'Note deleted' });
     } catch (error) {
         res.status(500).json({ message: 'Error deleting note' });
@@ -78,3 +82,4 @@ router.delete('/notes/:id', async (req, res) => {
 });
 
 export default router;
+

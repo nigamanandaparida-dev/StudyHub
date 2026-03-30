@@ -1,6 +1,6 @@
 import express from 'express';
-import Note from '../models/Note.js';
 import { localUpload } from '../utils/localUpload.js';
+import { db } from '../config/firebase.js';
 
 const router = express.Router();
 
@@ -8,31 +8,32 @@ const router = express.Router();
 router.post('/upload', localUpload.single('file'), async (req, res) => {
   try {
     const { title, userId, uploaderName } = req.body; 
-    console.log('Upload request received:', { title, userId });
     const file = req.file;
 
     if (!file) {
-      console.error('Upload failed: No file processed by multer');
       return res.status(400).send('No file uploaded or file rejected.');
     }
     if (!userId) {
       return res.status(400).json({ message: 'User not authenticated.' });
     }
 
-    const newNote = new Note({
+    const noteData = {
       title,
       fileUrl: `/${file.path.replace(/\\/g, '/')}`, 
       fileType: file.mimetype.split('/')[1] || 'unknown',
       uploader: userId,
       uploaderName: uploaderName || 'Anonymous',
-    });
+      createdAt: Date.now(),
+      savedBy: [] 
+    };
 
-    await newNote.save();
-    res.status(201).json(newNote);
+    const newNoteRef = db.ref('notes').push();
+    await newNoteRef.set({ ...noteData, _id: newNoteRef.key });
+    
+    res.status(201).json({ ...noteData, _id: newNoteRef.key });
   } catch (error) {
     console.error('--- UPLOAD ERROR (NOTES) ---');
     console.error('Error:', error);
-    console.error('-----------------------------');
     res.status(500).json({ message: 'Server error during upload', details: error.message });
   }
 });
@@ -41,11 +42,19 @@ router.post('/upload', localUpload.single('file'), async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { search } = req.query;
-    let query = {};
+    const snapshot = await db.ref('notes').once('value');
+    const notesObj = snapshot.val() || {};
+    
+    let notes = Object.values(notesObj);
+
     if (search) {
-      query = { title: { $regex: search, $options: 'i' } };
+      const searchLower = search.toLowerCase();
+      notes = notes.filter(note => note.title?.toLowerCase().includes(searchLower));
     }
-    const notes = await Note.find(query).sort({ createdAt: -1 });
+
+    // Sort by createdAt desc
+    notes.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    
     res.json(notes);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching notes' });
@@ -58,22 +67,27 @@ router.put('/save/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const note = await Note.findById(id);
+    const noteRef = db.ref(`notes/${id}`);
+    const snapshot = await noteRef.once('value');
+    const note = snapshot.val();
+
     if (!note) return res.status(404).send('No note with that id');
 
-    const index = note.savedBy.findIndex((id) => id === String(userId));
+    let savedBy = note.savedBy || [];
+    const index = savedBy.indexOf(String(userId));
 
     if (index === -1) {
-      note.savedBy.push(userId); // Save
+      savedBy.push(userId); // Save
     } else {
-      note.savedBy = note.savedBy.filter((id) => id !== String(userId)); // Unsave
+      savedBy = savedBy.filter((sid) => sid !== String(userId)); // Unsave
     }
 
-    const updatedNote = await Note.findByIdAndUpdate(id, note, { new: true });
-    res.json(updatedNote);
+    await noteRef.update({ savedBy });
+    res.json({ ...note, savedBy });
   } catch (error) {
     res.status(500).json({ message: 'Error saving note' });
   }
 });
 
 export default router;
+

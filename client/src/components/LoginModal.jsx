@@ -30,7 +30,7 @@ const LoginModal = ({ isOpen, onClose, onLogin, onRegister, onGoogleSignIn }) =>
             // Call backend to send OTP email
             setIsLoading(true);
             try {
-                const res = await axios.post('http://localhost:5000/api/auth/request-otp', {
+                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/request-otp`, {
                     email: formData.email
                 });
                 // previewUrl is the Ethereal email link (scannable by Google Lens!)
@@ -46,7 +46,7 @@ const LoginModal = ({ isOpen, onClose, onLogin, onRegister, onGoogleSignIn }) =>
             // Verify OTP, then register
             setIsLoading(true);
             try {
-                await axios.post('http://localhost:5000/api/auth/verify-otp-registration', {
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/verify-otp-registration`, {
                     email: formData.email,
                     otp: otpCode
                 });
