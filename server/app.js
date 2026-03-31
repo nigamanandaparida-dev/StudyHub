@@ -38,12 +38,35 @@ app.use(helmet({
 app.use(compression());
 app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// CORS Configuration
+// CORS Configuration 
+const allowedOrigins = [
+    process.env.FRONTEND_URL?.replace(/\/$/, '').trim(),
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://studyhubnigam.netlify.app'
+].filter(Boolean);
+
+// Ensure we only have unique values
+const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, postman, or same-origin)
+        if (!origin) return callback(null, true);
+        
+        // Remove trailing slash for comparison
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        
+        if (uniqueAllowedOrigins.some(ao => ao.replace(/\/$/, '') === normalizedOrigin) || NODE_ENV === 'development') {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS error: Domain ${origin} is not allowed.`));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+    optionsSuccessStatus: 200 // Some legacy browsers crash on 204
 };
 app.use(cors(corsOptions));
 app.use(express.json());

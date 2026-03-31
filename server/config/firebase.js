@@ -1,7 +1,7 @@
 import admin from 'firebase-admin';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config();        
 
 const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
 const databaseURL = process.env.FIREBASE_DATABASE_URL;
