@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiUsers, HiPhotograph, HiDocumentText, HiTrash, HiLogout } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +20,7 @@ const AdminDashboard = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/admin/${activeTab}`);
+            const response = await api.get(`/api/admin/${activeTab}`);
             setData(response.data);
         } catch (error) {
             console.error('Error fetching data', error);
@@ -32,7 +32,7 @@ const AdminDashboard = () => {
     const handleDelete = async (id) => {
         if (!window.confirm(`Are you sure you want to delete this ${activeTab.slice(0, -1)}?`)) return;
         try {
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/admin/${activeTab}/${id}`);
+            await api.delete(`/api/admin/${activeTab}/${id}`);
             fetchData();
         } catch (error) {
             alert('Error deleting item');

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiUpload, HiDocumentText, HiPhotograph } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
@@ -30,8 +30,8 @@ const Upload = ({ user }) => {
         }
 
         try {
-            const endpoint = activeTab === 'note' ? `${import.meta.env.VITE_API_URL}/api/notes/upload` : `${import.meta.env.VITE_API_URL}/api/memes/upload`;
-            await axios.post(endpoint, formData, {
+            const endpoint = activeTab === 'note' ? '/api/notes/upload' : '/api/memes/upload';
+            await api.post(endpoint, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setShowSuccess(true);

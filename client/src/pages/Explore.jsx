@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../api';
 import NoteCard from '../components/NoteCard';
 import { motion } from 'framer-motion';
 import { HiSearch } from 'react-icons/hi';
@@ -17,7 +17,7 @@ const Explore = ({ user }) => {
 
     const fetchNotes = async () => {
         try {
-            const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/notes?search=${search}`);
+            const { data } = await api.get(`/api/notes?search=${search}`);
             setNotes(data);
         } catch (error) {
             console.error('Error fetching notes', error);
@@ -29,7 +29,7 @@ const Explore = ({ user }) => {
     const handleSave = async (noteId) => {
         if (!user) return alert('Please login to save notes');
         try {
-            await axios.put(`${import.meta.env.VITE_API_URL}/api/notes/save/${noteId}`, { userId: user.uid });
+            await api.put(`/api/notes/save/${noteId}`, { userId: user.uid });
             // Optimistically update or refetch
             fetchNotes(); // Simple refetch for now
         } catch (error) {
@@ -38,7 +38,7 @@ const Explore = ({ user }) => {
     };
 
     const handleOpen = (note) => {
-        const url = note.fileUrl?.startsWith('/uploads') ? `${import.meta.env.VITE_API_URL}${note.fileUrl}` : note.fileUrl;
+        const url = note.fileUrl?.startsWith('/uploads') ? `${API_BASE_URL}${note.fileUrl}` : note.fileUrl;
         window.open(url, '_blank');
     };
 

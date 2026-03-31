@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiLockClosed, HiX } from 'react-icons/hi';
@@ -12,7 +12,7 @@ const AdminLogin = () => {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/admin/login`, { password });
+            const { data } = await api.post('/api/admin/login', { password });
             if (data.success) {
                 localStorage.setItem('isAdmin', 'true');
                 navigate('/admin-dashboard');

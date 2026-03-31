@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import MemeCard from '../components/MemeCard';
 import { HiEmojiHappy } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
@@ -14,7 +14,7 @@ const MemeFeed = ({ user, onLoginClick }) => {
 
     const fetchMemes = async () => {
         try {
-            const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/memes`);
+            const { data } = await api.get('/api/memes');
             setMemes(data);
         } catch (error) {
             console.error('Error fetching memes', error);
@@ -29,7 +29,7 @@ const MemeFeed = ({ user, onLoginClick }) => {
             return;
         }
         try {
-            await axios.put(`${import.meta.env.VITE_API_URL}/api/memes/like/${memeId}`, { userId: user.uid });
+            await api.put(`/api/memes/like/${memeId}`, { userId: user.uid });
             fetchMemes();
         } catch (error) {
             console.error('Error liking meme', error);
@@ -39,7 +39,7 @@ const MemeFeed = ({ user, onLoginClick }) => {
     const handleDelete = async (memeId) => {
         if (!window.confirm('Are you sure you want to delete this meme?')) return;
         try {
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/memes/${memeId}?userId=${user.uid}`);
+            await api.delete(`/api/memes/${memeId}?userId=${user.uid}`);
             fetchMemes();
         } catch (error) {
             console.error('Error deleting meme', error);
@@ -53,7 +53,7 @@ const MemeFeed = ({ user, onLoginClick }) => {
             return;
         }
         try {
-            await axios.post(`${import.meta.env.VITE_API_URL}/api/memes/reply/${memeId}`, {
+            await api.post(`/api/memes/reply/${memeId}`, {
                 userId: user.uid,
                 userName: user.displayName || user.email?.split('@')[0],
                 text
@@ -106,7 +106,7 @@ const MemeFeed = ({ user, onLoginClick }) => {
                             onClick={() => {
                                 const text = prompt('What\'s on your mind?');
                                 if (text) {
-                                    axios.post(`${import.meta.env.VITE_API_URL}/api/memes/text-post`, {
+                                    api.post('/api/memes/text-post', {
                                         textContent: text,
                                         userId: user?.uid,
                                         uploaderName: user?.displayName || user?.email?.split('@')[0]

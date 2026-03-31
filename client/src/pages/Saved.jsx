@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../api';
 import NoteCard from '../components/NoteCard';
 import { HiBookmark } from 'react-icons/hi';
 
@@ -21,7 +21,7 @@ const Saved = ({ user }) => {
             // Let's fetch all and filter for simplicity in this speed-run, or update backend to support it.
             // Actually backend 'api/notes' returns all.
             // I'll filter client side for now.
-            const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/api/notes`);
+            const { data } = await api.get('/api/notes');
             const filtered = data.filter(note => note.savedBy?.includes(user.uid));
             setSavedNotes(filtered);
         } catch (error) {
@@ -33,7 +33,7 @@ const Saved = ({ user }) => {
 
     const handleSave = async (noteId) => {
         try {
-            await axios.put(`${import.meta.env.VITE_API_URL}/api/notes/save/${noteId}`, { userId: user.uid });
+            await api.put(`/api/notes/save/${noteId}`, { userId: user.uid });
             fetchNotes(); // Refresh list to remove unsaved
         } catch (error) {
             console.error('Error saving note', error);
@@ -41,7 +41,7 @@ const Saved = ({ user }) => {
     };
 
     const handleOpen = (note) => {
-        const url = note.fileUrl?.startsWith('/uploads') ? `${import.meta.env.VITE_API_URL}${note.fileUrl}` : note.fileUrl;
+        const url = note.fileUrl?.startsWith('/uploads') ? `${API_BASE_URL}${note.fileUrl}` : note.fileUrl;
         window.open(url, '_blank');
     };
 
